@@ -4,6 +4,7 @@
 from functools import partial
 import torch.nn as nn
 import torch.nn.functional as F
+from base import BaseBackbone
 
 
 #------------------------------------------------------------------------------
@@ -50,31 +51,31 @@ class OctConv(nn.Module):
 	def forward(self, x):
 		if self.type == 'first':
 			x = self.downsample(x) if self.stride==2 else x
-			hf = self.convh(x)
-			lf = self.convl(self.avg_pool(x))
-			return hf, lf
+			hf_out = self.convh(x)
+			lf_out = self.convl(self.avg_pool(x))
+			return hf_out, lf_out
 
 		elif self.type == 'last':
 			hf, lf = x
 			if self.stride == 2:
-				hf = self.convh(self.downsample(hf))
-				lf = self.convl(lf)
-				return hf + lf
+				hf_out = self.convh(self.downsample(hf))
+				lf_out = self.convl(lf)
+				return hf_out + lf_out
 			else:
-				hf = self.convh(hf)
-				lf = self.convl(self.upsample(lf))
-				return hf + lf
+				hf_out = self.convh(hf)
+				lf_out = self.convl(self.upsample(lf))
+				return hf_out + lf_out
 		else:
 			hf, lf = x
 			if self.stride == 2:
 				hf = self.downsample(hf)
-				hf = self.H2H(hf) + self.L2H(lf)
-				lf = self.L2L(self.avg_pool(lf)) + self.H2L(self.avg_pool(hf))
-				return hf, lf
+				hf_out = self.H2H(hf) + self.L2H(lf)
+				lf_out = self.L2L(self.avg_pool(lf)) + self.H2L(self.avg_pool(hf))
+				return hf_out, lf_out
 			else:
-				hf = self.H2H(hf) + self.upsample(self.L2H(lf))
-				lf = self.L2L(lf) + self.H2L(self.avg_pool(hf))
-				return hf, lf
+				hf_out = self.H2H(hf) + self.upsample(self.L2H(lf))
+				lf_out = self.L2L(lf) + self.H2L(self.avg_pool(hf))
+				return hf_out, lf_out
 
 
 #------------------------------------------------------------------------------
@@ -185,7 +186,7 @@ class Bottleneck(nn.Module):
 		self.relu1 = act_func(inplace=True)
 		self.conv2 = conv3x3(planes, planes, stride, type="last" if type == "last" else "normal")
 		if type == "last":
-			conv1x1 = conv1x1
+			conv1x1 = norm_conv1x1
 			norm_func = nn.BatchNorm2d
 			act_func = nn.ReLU
 		self.bn2 = norm_func(planes)
@@ -226,7 +227,7 @@ class Bottleneck(nn.Module):
 #------------------------------------------------------------------------------
 #   ResNet
 #------------------------------------------------------------------------------
-class ResNet(nn.Module):
+class ResNet(BaseBackbone):
 	def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
 		super(ResNet, self).__init__()
 		self.inplanes = 64
@@ -241,16 +242,10 @@ class ResNet(nn.Module):
 		self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
 		self.fc = nn.Linear(512 * block.expansion, num_classes)
 
-		for m in self.modules():
-			if isinstance(m, nn.Conv2d):
-				nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-			elif isinstance(m, nn.BatchNorm2d):
-				nn.init.constant_(m.weight, 1)
-				nn.init.constant_(m.bias, 0)
-
 		# Zero-initialize the last BN in each residual branch,
 		# so that the residual branch starts with zeros, and each residual block behaves like an identity.
 		# This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+		self.init_weights()
 		if zero_init_residual:
 			for m in self.modules():
 				if isinstance(m, Bottleneck):
