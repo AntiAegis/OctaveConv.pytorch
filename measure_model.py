@@ -23,7 +23,10 @@ parser.add_argument('--input_sz', type=int, default=224,
 parser.add_argument('--in_channels', type=int, default=3,
                     help='Size of the input')
 
-parser.add_argument('--n_measures', type=int, default=50,
+parser.add_argument('--n_measures', type=int, default=100,
+                    help='Number of time measurements')
+
+parser.add_argument('--n_warmups', type=int, default=20,
                     help='Number of time measurements')
 
 args = parser.parse_args()
@@ -32,7 +35,7 @@ args = parser.parse_args()
 #------------------------------------------------------------------------------
 #	Create model
 #------------------------------------------------------------------------------
-model = models.octave_resnet101()
+model = models.resnet152()
 
 
 #------------------------------------------------------------------------------
@@ -50,7 +53,7 @@ if args.use_cuda:
     model.cuda()
     input = input.cuda()
 
-for _ in range(10):
+for _ in range(args.n_warmups):
     model(input)
 
 start_time = time()

@@ -228,7 +228,7 @@ class Bottleneck(nn.Module):
 #   ResNet
 #------------------------------------------------------------------------------
 class ResNet(BaseBackbone):
-	def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
+	def __init__(self, block, layers, num_classes=1000, use_octave=False, zero_init_residual=False):
 		super(ResNet, self).__init__()
 		self.inplanes = 64
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -285,7 +285,15 @@ class ResNet(BaseBackbone):
 
 
 #------------------------------------------------------------------------------
-#   Instances
+#   Original instances
+#------------------------------------------------------------------------------
+def resnet18(pretrained=False, **kwargs):
+	model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+	return model
+
+
+#------------------------------------------------------------------------------
+#   Octave instances
 #------------------------------------------------------------------------------
 def octave_resnet18(pretrained=False, **kwargs):
 	model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
