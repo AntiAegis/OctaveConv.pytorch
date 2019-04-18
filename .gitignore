@@ -6,3 +6,6 @@
 
 # log
 logs/
+
+# Local
+.vscode

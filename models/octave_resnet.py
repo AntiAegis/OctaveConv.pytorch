@@ -80,10 +80,10 @@ class OctConv(nn.Module):
 #------------------------------------------------------------------------------
 #  Fundamental convolutions
 #------------------------------------------------------------------------------
-def conv3x3(in_planes, out_planes, stride=1, type=None):
+def norm_conv3x3(in_planes, out_planes, stride=1, type=None):
 	return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
-def conv1x1(in_planes, out_planes, stride=1, type=None):
+def norm_conv1x1(in_planes, out_planes, stride=1, type=None):
 	return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 def oct_conv3x3(in_planes, out_planes, stride=1, type='normal'):
@@ -127,10 +127,9 @@ class BasicBlock(nn.Module):
 
 	def __init__(self, inplanes, planes, stride=1, downsample=None, type="normal", oct_conv_on=True):
 		super(BasicBlock, self).__init__()
-		conv3x3 = oct_conv3x3 if oct_conv_on else conv3x3
+		conv3x3 = oct_conv3x3 if oct_conv_on else norm_conv3x3
 		norm_func = OctBatchNorm if oct_conv_on else nn.BatchNorm2d
 		act_func = OctReLu if oct_conv_on else nn.ReLU
-		
 
 		self.conv1 = conv3x3(inplanes, planes, type="first" if type == "first" else "normal")
 		self.bn1 = norm_func(planes)
@@ -143,7 +142,8 @@ class BasicBlock(nn.Module):
 		self.relu2 = act_func(inplace=True)
 		self.downsample = downsample
 		self.stride = stride
-		
+
+
 	def forward(self, x):
 		identity = x
 
@@ -164,7 +164,6 @@ class BasicBlock(nn.Module):
 			out += identity
 
 		out = self.relu2(out)
-
 		return out
 
 
@@ -176,8 +175,8 @@ class Bottleneck(nn.Module):
 
 	def __init__(self, inplanes, planes, stride=1, downsample=None, type="normal", oct_conv_on=True):
 		super(Bottleneck, self).__init__()
-		conv1x1 = oct_conv1x1 if oct_conv_on else conv1x1
-		conv3x3 = oct_conv3x3 if oct_conv_on else conv3x3
+		conv1x1 = oct_conv1x1 if oct_conv_on else norm_conv1x1
+		conv3x3 = oct_conv3x3 if oct_conv_on else norm_conv3x3
 		norm_func = OctBatchNorm if oct_conv_on else nn.BatchNorm2d
 		act_func = OctReLu if oct_conv_on else nn.ReLU
 
@@ -219,8 +218,8 @@ class Bottleneck(nn.Module):
 			out = (out[0] + identity[0], out[1] + identity[1])
 		else:
 			out += identity
-		out = self.relu3(out)
 
+		out = self.relu3(out)
 		return out
 
 
@@ -231,8 +230,7 @@ class ResNet(nn.Module):
 	def __init__(self, block, layers, num_classes=1000, zero_init_residual=False):
 		super(ResNet, self).__init__()
 		self.inplanes = 64
-		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-							   bias=False)
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
 		self.bn1 = nn.BatchNorm2d(64)
 		self.relu = nn.ReLU(inplace=True)
 		self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -258,6 +256,7 @@ class ResNet(nn.Module):
 				if isinstance(m, Bottleneck):
 					nn.init.constant_(m.bn3.weight, 0)
 
+
 	def forward(self, x):
 		x = self.conv1(x)
 		x = self.bn1(x)
@@ -272,8 +271,8 @@ class ResNet(nn.Module):
 		x = self.avgpool(x)
 		x = x.view(x.size(0), -1)
 		x = self.fc(x)
-
 		return x
+
 
 	def _make_layer(self, block, planes, blocks, stride=1, type="normal"):
 		downsample = None
@@ -281,15 +280,12 @@ class ResNet(nn.Module):
 			norm_func = nn.BatchNorm2d if type == "last" else OctBatchNorm
 			downsample = nn.Sequential(
 				oct_conv1x1(self.inplanes, planes * block.expansion, stride, type=type),
-				norm_func(planes * block.expansion),
-			)
-
+				norm_func(planes * block.expansion))
 		layers = []
 		layers.append(block(self.inplanes, planes, stride, downsample, type=type))
 		self.inplanes = planes * block.expansion
 		for _ in range(1, blocks):
 			layers.append(block(self.inplanes, planes, oct_conv_on=type != "last"))
-
 		return nn.Sequential(*layers)
 
 
@@ -298,14 +294,10 @@ class ResNet(nn.Module):
 #------------------------------------------------------------------------------
 def octave_resnet18(pretrained=False, **kwargs):
 	model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
-	if pretrained:
-		model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
 	return model
 
 def octave_resnet34(pretrained=False, **kwargs):
 	model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
-	if pretrained:
-		model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
 	return model
 
 def octave_resnet50(pretrained=False, **kwargs):
